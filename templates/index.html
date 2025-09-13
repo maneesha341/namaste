@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Disease Code Lookup</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="container my-4">
+  <h2 class="mb-4">🔍 Disease Code Lookup (ICD-11 + TM2, FHIR Format)</h2>
+
+  <!-- Search form -->
+  <div class="row mb-3">
+    <div class="col-md-6">
+      <input type="text" id="diseaseInput" class="form-control" placeholder="Enter disease name">
+    </div>
+    <div class="col-md-2">
+      <button class="btn btn-primary" onclick="searchDisease()">Search</button>
+    </div>
+    <div class="col-md-2">
+      <button class="btn btn-secondary" onclick="listAll()">List All</button>
+    </div>
+  </div>
+
+  <!-- Update form -->
+  <div class="card p-3 mb-3">
+    <h5>✏️ Update Disease Codes</h5>
+    <input type="text" id="updateDisease" class="form-control mb-2" placeholder="Disease name">
+    <input type="text" id="updateICD" class="form-control mb-2" placeholder="New ICD-11 code">
+    <input type="text" id="updateTM2" class="form-control mb-2" placeholder="New TM2 code">
+    <button class="btn btn-warning" onclick="updateDisease()">Update</button>
+  </div>
+
+  <!-- Delete form -->
+  <div class="card p-3 mb-3">
+    <h5>🗑️ Delete Disease</h5>
+    <input type="text" id="deleteDisease" class="form-control mb-2" placeholder="Disease name">
+    <button class="btn btn-danger" onclick="deleteDisease()">Delete</button>
+  </div>
+
+  <!-- Result display -->
+  <div id="result" class="mt-3"></div>
+</div>
+
+<script>
+const apiUrl = "/";  // Flask serves from same origin
+
+// 🔎 Search
+async function searchDisease() {
+  const disease = document.getElementById('diseaseInput').value;
+  if (!disease) return alert("Please enter a disease name");
+
+  const response = await fetch(`/get_code?disease=${disease}`);
+  const data = await response.json();
+  displayResult(data);
+}
+
+// 📃 List all
+async function listAll() {
+  const response = await fetch('/list_diseases');
+  const data = await response.json();
+  displayResult(data);
+}
+
+// ✏️ Update
+async function updateDisease() {
+  const disease = document.getElementById('updateDisease').value;
+  const ICD11 = document.getElementById('updateICD').value;
+  const TM2 = document.getElementById('updateTM2').value;
+
+  if (!disease || !ICD11 || !TM2) {
+    return alert("Please enter disease name and new codes");
+  }
+
+  const response = await fetch(`/update/${disease}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ICD11, TM2 })
+  });
+
+  const data = await response.json();
+  displayMessage(data);
+}
+
+// 🗑️ Delete
+async function deleteDisease() {
+  const disease = document.getElementById('deleteDisease').value;
+  if (!disease) return alert("Please enter a disease name");
+
+  const response = await fetch(`/delete/${disease}`, { method: "DELETE" });
+  const data = await response.json();
+  displayMessage(data);
+}
+
+// ✅ Show results in table (FHIR aware)
+function displayResult(data) {
+  let html = "";
+
+  // If error returned
+  if (data.error) {
+    html = `<div class="alert alert-danger">${data.error}</div>`;
+  } 
+  // If FHIR Condition resource
+  else if (data.resourceType === "Condition") {
+    const icd = data.code?.coding?.find(c => c.system.includes("icd"))?.code || "N/A";
+    const tm2 = data.code?.coding?.find(c => c.system.includes("tm2"))?.code || "N/A";
+    const diseaseName = data.code?.coding?.[0]?.display || "Unknown";
+
+    html = `<table class="table table-bordered">
+              <thead><tr>
+                <th>Disease</th>
+                <th>ICD-11</th>
+                <th>TM2</th>
+                <th>id</th>
+                <th>resourceType</th>
+                <th>subject</th>
+              </tr></thead>
+              <tbody>
+                <tr>
+                  <td>${diseaseName}</td>
+                  <td>${icd}</td>
+                  <td>${tm2}</td>
+                  <td>${data.id}</td>
+                  <td>${data.resourceType}</td>
+                  <td>${data.subject?.reference || "N/A"}</td>
+                </tr>
+              </tbody>
+            </table>`;
+  } 
+  // If FHIR Bundle for /list_diseases
+  else if (data.resourceType === "Bundle") {
+    html = `<table class="table table-bordered">
+              <thead><tr><th>Disease</th><th>ICD-11</th><th>TM2</th></tr></thead><tbody>`;
+    data.entry.forEach(entry => {
+      const condition = entry.resource;
+      const icd = condition.code?.coding?.find(c => c.system.includes("icd"))?.code || "N/A";
+      const tm2 = condition.code?.coding?.find(c => c.system.includes("tm2"))?.code || "N/A";
+      const diseaseName = condition.code?.coding?.[0]?.display || "Unknown";
+      html += `<tr>
+                 <td>${diseaseName}</td>
+                 <td>${icd}</td>
+                 <td>${tm2}</td>
+               </tr>`;
+    });
+    html += `</tbody></table>`;
+  }
+
+  document.getElementById('result').innerHTML = html;
+}
+
+// ✅ Show confirmation/error messages
+function displayMessage(data) {
+  let html = "";
+  if (data.error) {
+    html = `<div class="alert alert-danger">${data.error}</div>`;
+  } else if (data.message) {
+    html = `<div class="alert alert-success">${data.message}</div>`;
+  }
+  document.getElementById('result').innerHTML = html;
+}
+</script>
+
+</body>
+</html>

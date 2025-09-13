@@ -1,0 +1,26 @@
+{
+  "Diabetes mellitus": {
+    "ICD11": "5A11",
+    "TM2": "TM2-101"
+  },
+  "COVID-19": {
+    "ICD11": "RA01.0",
+    "TM2": "TM2-202"
+  },
+  "Hypertension": {
+    "ICD11": "BA00",
+    "TM2": "TM2-303"
+  },
+  "Asthma": {
+    "ICD11": "CA23",
+    "TM2": "TM2-404"
+  },
+  "Fever (Jwara)": {
+    "ICD11": "MG30",
+    "TM2": "TM2-001"
+  },
+  "Anemia (Pandu Roga)": {
+    "ICD11": "3A00",
+    "TM2": "TM2-002"
+  }
+}
